@@ -1,64 +1,70 @@
 # LLM Steering with Activation Engineering
 
-This project demonstrates the technique of **Activation Engineering** (a form of "Steering") on Large Language Models (LLMs) using PyTorch and Hugging Face Transformers.
+This project demonstrates the technique of **Activation Engineering** (also known as *Representation Engineering*) on Large Language Models (LLMs) using PyTorch and Hugging Face Transformers. 
 
-It is designed as an educational tool to understand how to intervene on the internal state of a model to influence its output without fine-tuning.
+It is designed as an educational tool to understand how to intervene on the internal state of a model to influence its output without the need for fine-tuning or retraining.
 
-## How it works
+## 🚀 How it works
 
-1.  **Activations as Representation**: We assume that the internal activations of an LLM at specific layers represent concepts (e.g., sentiment, topics).
-2.  **Vector Arithmetic**: By contrasting the activations of two opposing prompts (e.g., "Love" vs "Hate"), we can extract a "direction" vector that represents that difference.
-3.  **Forward Hooking**: During generation, we use PyTorch hooks to inject this vector (add or subtract) into the model's activations at the same layer, "steering" the generation towards one concept or the other.
+1. **Activations as Representation**: We assume that the internal activations of an LLM at specific layers represent complex concepts (e.g., sentiment, honesty, topics).
+2. **Vector Arithmetic**: By contrasting the activations of two opposing prompts (e.g., "Love" vs "Hate"), we extract a "direction" vector that represents that specific difference in the model's latent space.
+3. **Forward Hooking**: During the generation process, we use PyTorch hooks to inject this vector (addition or subtraction) into the model's residual stream, "steering" the generation towards the desired concept.
 
-## Installation
+## 📚 References & Scientific Background
 
-1.  **Clone the repository**:
-    ```bash
-    git clone <repository_url>
-    cd Steering
-    ```
+This project is built upon recent breakthroughs in **Mechanistic Interpretability**. For a deeper understanding of the theory, please refer to these foundational papers:
 
-2.  **Prerequisites**:
-    - An NVIDIA GPU with CUDA support is highly recommended for performance (tested with CUDA 12.4).
-    - Python 3.9+
+* **Activation Addition (ActAdd)**: *Turner et al. (2023)* - [Activation Addition: Steering Language Models Without Optimization](https://arxiv.org/abs/2308.10248). This work demonstrates how adding steering vectors to the residual stream can control model behavior.
+* **Representation Engineering (RepE)**: *Zou et al. (2023)* - [Representation Engineering: A Top-Down Approach to AI Transparency](https://arxiv.org/abs/2310.01405). A comprehensive framework for extracting and manipulating concept vectors.
+* **The Geometry of Truth**: *Marks & Tegmark (2023)* - [The Geometry of Truth: Emergent Learned Representations of Truthfulness in LLMs](https://arxiv.org/abs/2310.18166). This study provides evidence that concepts like "truth" are represented as linear directions in activation space.
 
-3.  **Setup Environment**:
-    It is recommended to use a virtual environment:
-    ```bash
+## 🛠️ Installation
+
+1. **Clone the repository**:
+   ```bash
+   git clone <your-repository-url>
+   cd Steering
+
+2. **Prerequisites**:
+
+An NVIDIA GPU (e.g., RTX 4070 Super) with CUDA support is highly recommended.
+
+Python 3.9+
+
+3. **Setup Environment**:
+   ```bash
     python -m venv venv
     .\venv\Scripts\activate  # On Windows
     # source venv/bin/activate  # On Linux/Mac
-    ```
 
-4.  **Install Dependencies**:
-    This project requires PyTorch with CUDA support. The `requirements.txt` is configured to automatically download the correct version for CUDA 12.4.
+4. Install Dependencies: This project requires PyTorch optimized for CUDA 12.4.
     ```bash
-    pip install -r requirements.txt
-    ```
-    *Note: The download may be large (~2.5GB) as it includes the CUDA-enabled PyTorch binaries.*
+    pip install torch torchvision torchaudio --index-url [https://download.pytorch.org/whl/cu124](https://download.pytorch.org/whl/cu124)
+    pip install transformers datasets ipykernel jupyter
 
-## Usage
+💻 Usage
+Explore the implementation using the provided Jupyter notebook:
+    ```bash
+    jupyter notebook demo.ipynb
 
-Open the `demo.ipynb` notebook in Jupyter:
+The notebook guides you through:
 
-```bash
-jupyter notebook demo.ipynb
-```
+1. Loading a pre-trained model (e.g., GPT-2).
 
-Follow the steps to:
-1.  Load GPT-2.
-2.  Compute a steering vector (e.g., for sentiment).
-3.  Generate text with the steered model.
+2. Computing a steering vector for a specific concept.
 
-## Example
+3. Generating text and comparing the steered vs. unsteered output.
 
-**Prompt**: "I think that this film is"
+🧪 Example Results
+Prompt: "I think that this film is"
 
-*   **No Steering**: "...okay, but it lacks depth..."
-*   **Positive Steering**: "...absolutely fantastic and a masterpiece..."
-*   **Negative Steering**: "...a complete disaster and a waste of time..."
+No Steering: "...okay, but it lacks depth in the second act."
 
-## Credits
+Positive Steering (+Vector): "...absolutely fantastic, a true masterpiece of modern cinema!"
 
-This project explores concepts popularized by researchers in the AI Alignment and Interpretability community (e.g., work on Activation Engineering by Turner et al.).
-# Steering-Project-by-EuBa-Code
+Negative Steering (-Vector): "...a complete disaster and a total waste of time."
+
+Created for educational purposes in the field of AI Safety and Interpretability.
+
+
+
