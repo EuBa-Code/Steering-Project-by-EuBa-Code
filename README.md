@@ -42,6 +42,8 @@ Python 3.9+
     pip install torch torchvision torchaudio --index-url [https://download.pytorch.org/whl/cu124](https://download.pytorch.org/whl/cu124)
     pip install transformers datasets ipykernel jupyter
 
+----------------------------------------------------------------------------------------------------
+
 💻 Usage
 Explore the implementation using the provided Jupyter notebook:
     ```bash
@@ -55,6 +57,8 @@ The notebook guides you through:
 
 3. Generating text and comparing the steered vs. unsteered output.
 
+------------------------------------------------------------------------------------------------------
+
 🧪 Example Results
 Prompt: "I think that this film is"
 
@@ -63,6 +67,8 @@ No Steering: "...okay, but it lacks depth in the second act."
 Positive Steering (+Vector): "...absolutely fantastic, a true masterpiece of modern cinema!"
 
 Negative Steering (-Vector): "...a complete disaster and a total waste of time."
+
+--------------------------------------------------------------------------------------------------------
 
 Created for educational purposes in the field of AI Safety and Interpretability.
 
