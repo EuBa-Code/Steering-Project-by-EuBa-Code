@@ -14,9 +14,9 @@ It is designed as an educational tool to understand how to intervene on the inte
 
 This project is built upon recent breakthroughs in **Mechanistic Interpretability**. For a deeper understanding of the theory, please refer to these foundational papers:
 
-* **Activation Addition (ActAdd)**: *Turner et al. (2023)* - [Activation Addition: Steering Language Models Without Optimization](https://arxiv.org/abs/2308.10248). This work demonstrates how adding steering vectors to the residual stream can control model behavior.
-* **Representation Engineering (RepE)**: *Zou et al. (2023)* - [Representation Engineering: A Top-Down Approach to AI Transparency](https://arxiv.org/abs/2310.01405). A comprehensive framework for extracting and manipulating concept vectors.
-* **The Geometry of Truth**: *Marks & Tegmark (2023)* - [The Geometry of Truth: Emergent Learned Representations of Truthfulness in LLMs](https://arxiv.org/abs/2310.18166). This study provides evidence that concepts like "truth" are represented as linear directions in activation space.
+* **[Representation Engineering (RepE)](https://arxiv.org/abs/2310.01405)**: *Zou et al. (2023)*. This is arguably the most important paper on the subject, introducing a top-down approach to AI transparency.
+* **[Activation Addition (ActAdd)](https://arxiv.org/abs/2308.10248)**: *Turner et al. (2023)*. The foundational paper that popularized steering language models without optimization using simple vector addition.
+* **[The Geometry of Truth](https://arxiv.org/abs/2310.18166)**: *Marks & Tegmark (2023)*. A key study showing how "truthfulness" is represented as a linear direction in the activation space of LLMs.
 
 ## 🛠️ Installation
 
