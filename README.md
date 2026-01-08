@@ -10,6 +10,14 @@ It is designed as an educational tool to understand how to intervene on the inte
 2. **Vector Arithmetic**: By contrasting the activations of two opposing prompts (e.g., "Love" vs "Hate"), we extract a "direction" vector that represents that specific difference in the model's latent space.
 3. **Forward Hooking**: During the generation process, we use PyTorch hooks to inject this vector (addition or subtraction) into the model's residual stream, "steering" the generation towards the desired concept.
 
+## 🧠 The Neural Analogy: AI Steering as Neurostimulation
+
+A compelling way to understand Activation Engineering is through the lens of neuroscience. In biological brains, techniques like **Transcranial Magnetic Stimulation (TMS)** or **Deep Brain Stimulation (DBS)** are used to modulate neural activity.
+
+* **Non-Invasive Modulation**: Just as TMS influences specific brain regions with magnetic pulses without changing the brain's physical structure, Steering modulates the "residual stream" without changing the model's weights.
+* **Real-time Intervention**: We are not "teaching" the model new things (Learning); we are "stimulating" existing latent representations to change the model's behavioral state in real-time.
+* **Circuit Level Control**: We act as "digital neurosurgeons," identifying the specific layers (circuits) where a concept is most salient and applying a precise "vectorial impulse."
+
 ## 📚 References & Scientific Background
 
 This project is built upon recent breakthroughs in **Mechanistic Interpretability**. For a deeper understanding of the theory, please refer to these foundational papers:
