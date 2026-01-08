@@ -59,14 +59,25 @@ The notebook guides you through:
 
 ------------------------------------------------------------------------------------------------------
 
-🧪 Example Results
-Prompt: "I think that this film is"
+------------------------------------------------------------------------------------------------------
 
-No Steering: "...okay, but it lacks depth in the second act."
+### 🧪 Experimental Insights & Best Practices
 
-Positive Steering (+Vector): "...absolutely fantastic, a true masterpiece of modern cinema!"
+Through empirical testing on **GPT-2 Small**, we have identified several key factors that influence the effectiveness of activation steering:
 
-Negative Steering (-Vector): "...a complete disaster and a total waste of time."
+#### 1. The "Golden" Layers
+*   **Layers 7 and 8**: These layers consistently perform best for semantic concepts like sentiment or genre.
+*   **Rationale**: Early layers focus heavily on syntax and low-level token features, while the final layers are too biased towards immediate token prediction. Middle layers (7-8) represent the "conceptual core" where abstract meanings are solidified.
+
+#### 2. Vector Purity (Signal-to-Noise)
+*   **Symmetry is key**: Using short, symmetric pairs of prompts (e.g., `"I love it"` vs `"I hate it"`) produces much cleaner steering vectors. 
+*   **Grammar Noise**: Longer, varied sentences often introduce "grammatical noise" into the vector, which can lead to incoherent generations or failure to steer the model effectively.
+
+#### 3. Power Scaling (Magnitude)
+Since the implementation normalizes the steering vector to a unit length (norm = 1.0), the `multiplier` (force) becomes a predictable control:
+*   **Force < 10.0**: Subtle effect, often overcome by the model's natural bias.
+*   **Force 30.0 - 50.0**: The "Sweet Spot". The model follows the steering direction while maintaining high linguistic coherence.
+*   **Force > 80.0**: Excessive perturbation. The model may begin generating repetitive or nonsensical text as activations are pushed too far out of their natural distribution.
 
 --------------------------------------------------------------------------------------------------------
 
