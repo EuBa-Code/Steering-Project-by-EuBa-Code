@@ -24,7 +24,7 @@ class ModelloSteerable:
         self.model.eval()
         
         # Inizializziamo il gestore degli hook
-        self.gestore_clips = GestoreHooks()
+        self.gestore_hooks = GestoreHooks()
 
     def _get_layer_gpt2(self, layer_idx):
         """
@@ -53,6 +53,8 @@ class ModelloSteerable:
             if isinstance(text_input, str):
                 return self._esegui_e_cattura(text_input, layer_idx)
             elif isinstance(text_input, list):
+                if not text_input:
+                    raise ValueError("La lista degli input non può essere vuota")
                 activations = [self._esegui_e_cattura(t, layer_idx) for t in text_input]
                 # Stack su una nuova dimensione e calcola la media
                 return torch.stack(activations).mean(dim=0)
@@ -75,16 +77,16 @@ class ModelloSteerable:
 
     def _esegui_e_cattura(self, testo, layer_idx):
         """Helper interno per eseguire il modello e catturare l'attivazione a un layer."""
-        self.gestore_clips.rimuovi_tutti_hooks()
+        self.gestore_hooks.rimuovi_tutti_hooks()
         
         layer = self._get_layer_gpt2(layer_idx)
-        self.gestore_clips.registra_hook_cattura(layer, layer_idx)
+        self.gestore_hooks.registra_hook_cattura(layer, layer_idx)
         
         inputs = self.tokenizer(testo, return_tensors="pt").to(self.device)
         with torch.no_grad():
             self.model(**inputs)
             
-        return self.gestore_clips.get_attivazione(layer_idx)
+        return self.gestore_hooks.get_attivazione(layer_idx)
 
     def genera(self, prompt, max_new_tokens=50, vettore_steering=None, layer_idx=None, moltiplicatore=0.0):
         """
@@ -100,12 +102,12 @@ class ModelloSteerable:
         Returns:
             str: Il testo generato decodificato.
         """
-        self.gestore_clips.rimuovi_tutti_hooks()
+        self.gestore_hooks.rimuovi_tutti_hooks()
         
         # Se abbiamo parametri di steering, registriamo l'hook di modifica
         if vettore_steering is not None and layer_idx is not None and moltiplicatore != 0:
             layer = self._get_layer_gpt2(layer_idx)
-            self.gestore_clips.registra_hook_steering(layer, layer_idx, vettore_steering, moltiplicatore)
+            self.gestore_hooks.registra_hook_steering(layer, layer_idx, vettore_steering, moltiplicatore)
 
         # Generazione standard di Hugging Face
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)

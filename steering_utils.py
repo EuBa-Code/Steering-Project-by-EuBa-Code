@@ -113,9 +113,9 @@ class SteeringManager:
         pos_act = self.get_activation(positive_text, layer_idx)
         neg_act = self.get_activation(negative_text, layer_idx)
         
-        self.steering_vector = pos_act - neg_act
-        self.steering_layer = layer_idx
-        return self.steering_vector
+        self._steering_vector = pos_act - neg_act
+        self._target_layer_idx = layer_idx
+        return self._steering_vector
 
     def generate(self, prompt, max_new_tokens=20, steering_vector=None, layer_idx=None, multiplier=0.0):
         """

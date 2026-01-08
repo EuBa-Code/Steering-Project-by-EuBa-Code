@@ -93,6 +93,8 @@ class GestoreHooks:
         self._hooks_registrati = []
         self._attivazioni_catturate = {}
         self._vettore_steering_attivo = None
+        self._layer_target_idx = None
+        self._moltiplicatore = 0.0
         
     def get_attivazione(self, layer_idx):
         """Restituisce l'attivazione catturata per un dato layer."""
