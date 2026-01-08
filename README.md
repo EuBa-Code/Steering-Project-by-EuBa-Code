@@ -20,12 +20,21 @@ A compelling way to understand Activation Engineering is through the lens of neu
 
 ## 📚 References & Scientific Background
 
-This project is built upon recent breakthroughs in **Mechanistic Interpretability**. For a deeper understanding of the theory, please refer to these foundational papers:
+This project integrates foundational research with state-of-the-art implementations in **Mechanistic Interpretability**:
 
-* **[Representation Engineering (RepE)](https://arxiv.org/abs/2310.01405)**: *Zou et al. (2023)*. This is arguably the most important paper on the subject, introducing a top-down approach to AI transparency.
-* **[Activation Addition (ActAdd)](https://arxiv.org/abs/2308.10248)**: *Turner et al. (2023)*. The foundational paper that popularized steering language models without optimization using simple vector addition.
-* **[The Geometry of Truth](https://arxiv.org/abs/2310.18166)**: *Marks & Tegmark (2023)*. A key study showing how "truthfulness" is represented as a linear direction in the activation space of LLMs.
+### 🏛️ Foundational Theory
+* **Representation Engineering (RepE)**: *Zou et al. (2023)*. The primary framework for top-down AI transparency.
+* **Activation Addition (ActAdd)**: *Turner et al. (2023)*. The seminal work on steering via vector addition.
+* **Scaling Monosemanticity**: *Templeton et al. (Anthropic, 2024)*. Highlighting how Sparse Autoencoders (SAEs) isolate high-level concepts within the latent space.
 
+### 🔬 Technical Deep Dives
+* **The Geometry of Truth**: *Marks & Tegmark (2023)*. Proving that truthfulness exists as a linear direction in LLMs.
+* **Concept Activation Vectors (CAV)**: *LessWrong (2023)*. A deep dive into the mathematical intuition of steering behaviors.
+
+### 🛠️ Practical Implementations & Case Studies
+* **LLM-Steer-Instruct**: *Microsoft (2024)*. Techniques for steering instruction-tuned models.
+* **Eiffel Tower Llama**: *David Louapre*. A famous community experiment demonstrating forced concept injection.
+* **mHC (Manifold-Constrained Hyper-Connections)**: *DeepSeek-AI (2025)*. Latest research on stabilizing the residual stream architectures we target.
 ## 🛠️ Installation
 
 1. **Clone the repository**:
