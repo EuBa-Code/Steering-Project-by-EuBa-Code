@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "steering-lib"
+version = "0.1.0"
+description = "Activation Engineering toolkit for steering LLM generation via internal representations."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "EuBa-Code"},
+]
+keywords = [
+    "llm",
+    "activation-engineering",
+    "representation-engineering",
+    "interpretability",
+    "steering",
+    "pytorch",
+    "transformers",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "torch>=2.0",
+    "transformers>=4.30",
+    "accelerate",
+    "numpy",
+]
+
+[project.optional-dependencies]
+dev = [
+    "jupyter",
+    "matplotlib",
+]
+
+[project.urls]
+Repository = "https://github.com/EuBa-Code/Steering-Project-by-EuBa-Code"
+
+[tool.setuptools.packages.find]
+include = ["steering_lib*"]
