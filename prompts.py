@@ -1,5 +1,9 @@
-# Liste di prompt per gli esperimenti di Steering
-# Questo file viene importato nel notebook playground.ipynb
+"""Curated prompt collections for steering experiments.
+
+Each list contains 10 short, thematically consistent sentences.
+Pairing two opposing lists (e.g. FANTASY vs SCI-FI) and averaging their
+activations produces a robust steering vector with low noise.
+"""
 
 FANTASY_PROMPTS = [
     "A magical sword glowing with ancient runes.",
@@ -11,7 +15,7 @@ FANTASY_PROMPTS = [
     "A mysterious potion brewing in a cauldron.",
     "The prophecy of the chosen one.",
     "Knights in shining armor defending the realm.",
-    "A secret path leading to the fairy garden."
+    "A secret path leading to the fairy garden.",
 ]
 
 SCIFI_PROMPTS = [
@@ -24,7 +28,7 @@ SCIFI_PROMPTS = [
     "Data packets streaming through the neural link.",
     "Alien lifeforms discovered on a distant moon.",
     "Time travel paradoxes in the year 3000.",
-    "Galactic peace treaties signed on the starbase."
+    "Galactic peace treaties signed on the starbase.",
 ]
 
 FORMAL_PROMPTS = [
@@ -37,7 +41,7 @@ FORMAL_PROMPTS = [
     "Subsequent to our previous correspondence.",
     "Evaluation of the primary objectives is underway.",
     "We remain at your disposal for any further information.",
-    "Respectfully, we submit our findings for your review."
+    "Respectfully, we submit our findings for your review.",
 ]
 
 STREET_PROMPTS = [
@@ -50,7 +54,7 @@ STREET_PROMPTS = [
     "You gotta be kidding me with this.",
     "Listen, I'm gonna head out now.",
     "No way, that's crazy!",
-    "Catch you later, stay cool."
+    "Catch you later, stay cool.",
 ]
 
 LOVE_PROMPTS = [
@@ -63,7 +67,7 @@ LOVE_PROMPTS = [
     "Kindness and compassion are the keys to happiness.",
     "Feeling grateful for all the love in my life.",
     "A warm hug makes everything feel better.",
-    "Peace, love, and harmony to everyone."
+    "Peace, love, and harmony to everyone.",
 ]
 
 HATE_PROMPTS = [
@@ -76,5 +80,5 @@ HATE_PROMPTS = [
     "Revolting behavior that makes me sick.",
     "Everything is falling apart and I'm furious.",
     "Despising the ignorance and malice.",
-    "Utter contempt for such idiocy."
+    "Utter contempt for such idiocy.",
 ]
