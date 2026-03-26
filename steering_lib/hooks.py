@@ -1,101 +1,123 @@
+"""Low-level PyTorch forward-hook management for activation capture and injection."""
+
+from __future__ import annotations
+
+from typing import Any
+
 import torch
 
-class GestoreHooks:
-    """
-    Gestisce gli hook di PyTorch per intercettare e modificare le attivazioni del modello.
-    Questa classe si occupa della parte di 'basso livello' dell'interazione con il modello.
-    """
-    def __init__(self):
-        self._hooks_registrati = []
-        self._attivazioni_catturate = {}
-        
-        # Stato per lo steering attivo
-        self._vettore_steering_attivo = None
-        self._layer_target_idx = None
-        self._moltiplicatore = 0.0
 
-    def cattura_attivazione(self, modulo, input, output, layer_idx):
-        """
-        Hook di callback eseguito durante il forward pass per SALVARE le attivazioni.
-        
-        Args:
-            modulo: Il layer PyTorch.
-            input: Tuple degli input al layer.
-            output: L'output del layer (spesso una tupla in GPT-2).
-            layer_idx: L'indice del layer corrente.
-        """
-        # In GPT-2, l'output è una tupla (hidden_state, present_key_value_states)
-        # A noi interessa hidden_state, che è il primo elemento.
-        if isinstance(output, tuple):
-            hidden_state = output[0]
-        else:
-            hidden_state = output
-            
-        # Salviamo solo l'attivazione dell'ULTIMO token della sequenza.
-        # Shape tipica: [batch_size, seq_len, hidden_dim]
-        # Prendiamo: batch 0, ultimo token (-1), tutte le feature (:).
-        self._attivazioni_catturate[layer_idx] = hidden_state[0, -1, :].detach().cpu()
+class HookManager:
+    """Register, fire, and clean up PyTorch forward hooks.
 
-    def inietta_steering(self, modulo, input, output, layer_idx):
+    This class is the low-level engine behind :class:`SteerableModel`.  It
+    handles two operations:
+
+    * **Capture** — record the last-token hidden state at a given layer.
+    * **Inject** — add a scaled steering vector to the hidden state during
+      generation.
+    """
+
+    def __init__(self) -> None:
+        self._registered_hooks: list[torch.utils.hooks.RemovableHook] = []
+        self._captured_activations: dict[int, torch.Tensor] = {}
+
+        # Active steering state
+        self._active_steering_vector: torch.Tensor | None = None
+        self._target_layer_idx: int | None = None
+        self._multiplier: float = 0.0
+
+    # ------------------------------------------------------------------
+    # Hook callbacks
+    # ------------------------------------------------------------------
+
+    def capture_activation(
+        self,
+        module: torch.nn.Module,
+        input: Any,
+        output: Any,
+        layer_idx: int,
+    ) -> None:
+        """Forward-hook callback that saves the last-token hidden state.
+
+        GPT-2 blocks return ``(hidden_state, present_key_values)``; we
+        extract ``hidden_state[0, -1, :]`` (batch 0, last token).
         """
-        Hook di callback eseguito durante il forward pass per MODIFICARE le attivazioni.
-        Aggiunge il vettore di steering all'output del layer specificato.
+        hidden_state = output[0] if isinstance(output, tuple) else output
+        self._captured_activations[layer_idx] = hidden_state[0, -1, :].detach().cpu()
+
+    def inject_steering(
+        self,
+        module: torch.nn.Module,
+        input: Any,
+        output: Any,
+        layer_idx: int,
+    ) -> Any:
+        """Forward-hook callback that adds the steering perturbation.
+
+        The perturbation is ``vector * multiplier`` and is broadcast across
+        the full ``[batch, seq_len, hidden_dim]`` tensor.
         """
-        # Se non è il layer giusto o il vettore non c'è, non facciamo nulla.
-        if self._vettore_steering_attivo is None or layer_idx != self._layer_target_idx:
+        if self._active_steering_vector is None or layer_idx != self._target_layer_idx:
             return output
 
         if isinstance(output, tuple):
-            hidden_state = output[0]
-            rest = output[1:]
+            hidden_state, *rest = output
         else:
             hidden_state = output
-            rest = ()
+            rest = []
 
-        # Calcoliamo la perturbazione: Vettore * Moltiplicatore
-        perturbazione = self._vettore_steering_attivo.to(hidden_state.device) * self._moltiplicatore
-        
-        # Aggiungiamo la perturbazione all'hidden state originale
-        # PyTorch gestisce il broadcasting se le dimensioni sono compatibili.
-        hidden_state_modificato = hidden_state + perturbazione
-        
-        if isinstance(output, tuple):
-            return (hidden_state_modificato,) + rest
-        else:
-            return hidden_state_modificato
-
-    def registra_hook_cattura(self, layer, layer_idx):
-        """
-        Registra un hook su un layer specifico per CATTURARE le attivazioni.
-        """
-        handle = layer.register_forward_hook(
-            lambda m, i, o: self.cattura_attivazione(m, i, o, layer_idx)
+        perturbation = (
+            self._active_steering_vector.to(hidden_state.device) * self._multiplier
         )
-        self._hooks_registrati.append(handle)
+        steered = hidden_state + perturbation
 
-    def registra_hook_steering(self, layer, layer_idx, vettore, moltiplicatore):
-        """
-        Registra un hook su un layer specifico per INIETTARE il vettore di steering.
-        """
-        self._vettore_steering_attivo = vettore
-        self._layer_target_idx = layer_idx
-        self._moltiplicatore = moltiplicatore
-        
+        return (steered, *rest) if isinstance(output, tuple) else steered
+
+    # ------------------------------------------------------------------
+    # Registration helpers
+    # ------------------------------------------------------------------
+
+    def register_capture_hook(
+        self, layer: torch.nn.Module, layer_idx: int
+    ) -> None:
+        """Attach a capture hook to *layer*."""
         handle = layer.register_forward_hook(
-            lambda m, i, o: self.inietta_steering(m, i, o, layer_idx)
+            lambda m, i, o: self.capture_activation(m, i, o, layer_idx)
         )
-        self._hooks_registrati.append(handle)
+        self._registered_hooks.append(handle)
 
-    def rimuovi_tutti_hooks(self):
-        """Rimuove tutti gli hook registrati e pulisce lo stato."""
-        for handle in self._hooks_registrati:
+    def register_steering_hook(
+        self,
+        layer: torch.nn.Module,
+        layer_idx: int,
+        vector: torch.Tensor,
+        multiplier: float,
+    ) -> None:
+        """Attach a steering-injection hook to *layer*."""
+        self._active_steering_vector = vector
+        self._target_layer_idx = layer_idx
+        self._multiplier = multiplier
+
+        handle = layer.register_forward_hook(
+            lambda m, i, o: self.inject_steering(m, i, o, layer_idx)
+        )
+        self._registered_hooks.append(handle)
+
+    # ------------------------------------------------------------------
+    # Cleanup
+    # ------------------------------------------------------------------
+
+    def remove_all_hooks(self) -> None:
+        """Remove every registered hook and reset internal state."""
+        for handle in self._registered_hooks:
             handle.remove()
-        self._hooks_registrati = []
-        self._attivazioni_catturate = {}
-        self._vettore_steering_attivo = None
-        self._layer_target_idx = None
-        self._moltiplicatore = 0.0
-        
-    def get_attivazione(self, layer_idx):
-        """Restituisce l'attivazione catturata per un dato layer."""
-        return self._attivazioni_catturate.get(layer_idx)
+        self._registered_hooks.clear()
+        self._captured_activations.clear()
+        self._active_steering_vector = None
+        self._target_layer_idx = None
+        self._multiplier = 0.0
+
+    def get_activation(self, layer_idx: int) -> torch.Tensor | None:
+        """Return the captured activation for *layer_idx*, or ``None``."""
+        return self._captured_activations.get(layer_idx)

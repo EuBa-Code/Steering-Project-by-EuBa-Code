@@ -1,122 +1,180 @@
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from .hooks import GestoreHooks
-from .vectors import VettoreSteering
+"""High-level wrapper that makes any GPT-2-family model steerable."""
 
-class ModelloSteerable:
+from __future__ import annotations
+
+import torch
+import torch.nn.functional as F
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+from .hooks import HookManager
+from .vectors import SteeringVector
+
+
+class SteerableModel:
+    """Load a causal LM and steer its generation via activation engineering.
+
+    Typical workflow::
+
+        model = SteerableModel("gpt2")
+        vec   = model.extract_vector("I love it", "I hate it", layer_idx=7)
+        out   = model.generate("I think this is", steering_vector=vec,
+                               layer_idx=7, multiplier=40.0)
+
+    Args:
+        model_name: Any Hugging Face causal-LM identifier (default ``"gpt2"``).
+        device: ``"cuda"``, ``"cpu"``, or ``None`` for auto-detection.
     """
-    Classe principale che avvolge il modello LLM e permette di eseguire operazioni di steering.
-    Usa 'GestoreHooks' per manipolare le attivazioni e 'VettoreSteering' per i calcoli.
-    """
-    def __init__(self, model_name="gpt2", device=None):
+
+    def __init__(self, model_name: str = "gpt2", device: str | None = None) -> None:
         if device is None:
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
         else:
             self.device = device
 
         if self.device == "cuda" and not torch.cuda.is_available():
-            print("Attenzione: CUDA richiesto ma non disponibile (Torch not compiled with CUDA). Utilizzo CPU.")
+            print("Warning: CUDA requested but not available. Falling back to CPU.")
             self.device = "cpu"
-            
-        print(f"Caricamento modello {model_name} su {self.device}...")
+
+        print(f"Loading {model_name} on {self.device} ...")
         self.model = AutoModelForCausalLM.from_pretrained(model_name).to(self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model.eval()
-        
-        # Inizializziamo il gestore degli hook
-        self.gestore_hooks = GestoreHooks()
 
-    def _get_layer_gpt2(self, layer_idx):
-        """
-        Recupera uno specifico blocco transformer.
-        Nota: Questa implementazione è specifica per GPT-2. 
-        Per Llama o altri modelli, il percorso 'transformer.h' cambia.
-        """
-        # La struttura di GPT-2 è model.transformer.h[indice files]
-        return self.model.transformer.h[layer_idx]
+        self._num_layers: int = len(self.model.transformer.h)
+        self._hook_manager = HookManager()
 
-    def estrai_vettore(self, testo_positivo, testo_negativo, layer_idx, normalize=True):
-        """
-        Calcola un vettore di steering basato sulla differenza tra due testi (o liste di testi).
-        
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def extract_vector(
+        self,
+        positive_text: str | list[str],
+        negative_text: str | list[str],
+        layer_idx: int,
+        normalize: bool = True,
+    ) -> torch.Tensor:
+        """Compute a steering vector from contrasting concepts.
+
+        When lists are provided the activations are averaged, which produces
+        a cleaner, more robust direction than a single prompt pair.
+
         Args:
-            testo_positivo (str | list[str]): Esempio/i del concetto verso cui vogliamo andare.
-            testo_negativo (str | list[str]): Esempio/i del concetto opposto.
-            layer_idx (int): Indice del layer da cui estrarre le attivazioni.
-            normalize (bool): Se True, normalizza il vettore a lunghezza 1. Consigliato.
-            
-        Returns:
-            torch.Tensor: Il vettore di steering calcolato.
-        """
-        # Helper interno per gestire input singolo o lista
-        def _get_avg_activation(text_input):
-            if isinstance(text_input, str):
-                return self._esegui_e_cattura(text_input, layer_idx)
-            elif isinstance(text_input, list):
-                if not text_input:
-                    raise ValueError("La lista degli input non può essere vuota")
-                activations = [self._esegui_e_cattura(t, layer_idx) for t in text_input]
-                # Stack su una nuova dimensione e calcola la media
-                return torch.stack(activations).mean(dim=0)
-            else:
-                raise ValueError("Input deve essere stringa o lista di stringhe")
+            positive_text: Prompt(s) representing the target concept.
+            negative_text: Prompt(s) representing the opposite concept.
+            layer_idx: Transformer block index to extract activations from.
+            normalize: If ``True`` (recommended), normalize to unit length.
 
-        # 1. Cattura attivazione Positiva (Media se è una lista)
-        act_pos = _get_avg_activation(testo_positivo)
-        
-        # 2. Cattura attivazione Negativa (Media se è una lista)
-        act_neg = _get_avg_activation(testo_negativo)
-        
-        # 3. Calcola differenza
-        vettore = VettoreSteering.calcola_da_differenza(act_pos, act_neg)
-        
+        Returns:
+            A 1-D tensor of shape ``(hidden_dim,)``.
+
+        Raises:
+            ValueError: If inputs are empty or of unexpected type.
+            IndexError: If *layer_idx* is out of range.
+        """
+        self._validate_layer(layer_idx)
+
+        act_pos = self._avg_activation(positive_text, layer_idx)
+        act_neg = self._avg_activation(negative_text, layer_idx)
+
+        vector = SteeringVector.from_diff(act_pos, act_neg)
+
         if normalize:
-            vettore = torch.nn.functional.normalize(vettore, dim=-1)
-            
-        return vettore
+            vector = F.normalize(vector, dim=-1)
 
-    def _esegui_e_cattura(self, testo, layer_idx):
-        """Helper interno per eseguire il modello e catturare l'attivazione a un layer."""
-        self.gestore_hooks.rimuovi_tutti_hooks()
-        
-        layer = self._get_layer_gpt2(layer_idx)
-        self.gestore_hooks.registra_hook_cattura(layer, layer_idx)
-        
-        inputs = self.tokenizer(testo, return_tensors="pt").to(self.device)
-        with torch.no_grad():
-            self.model(**inputs)
-            
-        return self.gestore_hooks.get_attivazione(layer_idx)
+        return vector
 
-    def genera(self, prompt, max_new_tokens=50, vettore_steering=None, layer_idx=None, moltiplicatore=0.0):
-        """
-        Genera testo a partire da un prompt, applicando opzionalmente lo steering.
-        
+    def generate(
+        self,
+        prompt: str,
+        max_new_tokens: int = 50,
+        steering_vector: torch.Tensor | None = None,
+        layer_idx: int | None = None,
+        multiplier: float = 0.0,
+    ) -> str:
+        """Generate text, optionally steered by a vector.
+
         Args:
-            prompt (str): Il testo iniziale.
-            max_new_tokens (int): Lunghezza massima della generazione.
-            vettore_steering (torch.Tensor, optional): Il vettore da iniettare.
-            layer_idx (int, optional): Il layer dove iniettare il vettore.
-            moltiplicatore (float): Forza dell'iniezione (positivo o negativo).
-            
-        Returns:
-            str: Il testo generato decodificato.
-        """
-        self.gestore_hooks.rimuovi_tutti_hooks()
-        
-        # Se abbiamo parametri di steering, registriamo l'hook di modifica
-        if vettore_steering is not None and layer_idx is not None and moltiplicatore != 0:
-            layer = self._get_layer_gpt2(layer_idx)
-            self.gestore_hooks.registra_hook_steering(layer, layer_idx, vettore_steering, moltiplicatore)
+            prompt: The input text.
+            max_new_tokens: Maximum number of tokens to generate.
+            steering_vector: Direction tensor (from :meth:`extract_vector`).
+            layer_idx: Layer at which to inject the vector.
+            multiplier: Scaling factor — positive steers *toward* the concept,
+                negative steers *away*. Recommended range: 30–50.
 
-        # Generazione standard di Hugging Face
+        Returns:
+            The decoded generated string (prompt + continuation).
+        """
+        self._hook_manager.remove_all_hooks()
+
+        if steering_vector is not None and layer_idx is not None and multiplier != 0:
+            self._validate_layer(layer_idx)
+            layer = self._get_layer(layer_idx)
+            self._hook_manager.register_steering_hook(
+                layer, layer_idx, steering_vector, multiplier
+            )
+
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
         output_ids = self.model.generate(
-            **inputs, 
-            max_new_tokens=max_new_tokens, 
-            do_sample=True, 
-            top_k=50, 
-            pad_token_id=self.tokenizer.eos_token_id
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=True,
+            top_k=50,
+            pad_token_id=self.tokenizer.eos_token_id,
         )
-        
+
+        self._hook_manager.remove_all_hooks()
         return self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
+
+    @property
+    def num_layers(self) -> int:
+        """Total number of transformer blocks in the loaded model."""
+        return self._num_layers
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _get_layer(self, layer_idx: int) -> torch.nn.Module:
+        """Return the transformer block at *layer_idx* (GPT-2 layout)."""
+        return self.model.transformer.h[layer_idx]
+
+    def _run_and_capture(self, text: str, layer_idx: int) -> torch.Tensor:
+        """Run a forward pass and return the last-token activation at *layer_idx*."""
+        self._hook_manager.remove_all_hooks()
+
+        layer = self._get_layer(layer_idx)
+        self._hook_manager.register_capture_hook(layer, layer_idx)
+
+        inputs = self.tokenizer(text, return_tensors="pt").to(self.device)
+        with torch.no_grad():
+            self.model(**inputs)
+
+        activation = self._hook_manager.get_activation(layer_idx)
+        self._hook_manager.remove_all_hooks()
+        return activation
+
+    def _avg_activation(
+        self, text_input: str | list[str], layer_idx: int
+    ) -> torch.Tensor:
+        """Return the (averaged) last-token activation for *text_input*."""
+        if isinstance(text_input, str):
+            return self._run_and_capture(text_input, layer_idx)
+
+        if isinstance(text_input, list):
+            if not text_input:
+                raise ValueError("Prompt list must not be empty.")
+            activations = [self._run_and_capture(t, layer_idx) for t in text_input]
+            return torch.stack(activations).mean(dim=0)
+
+        raise TypeError(
+            f"Expected str or list[str], got {type(text_input).__name__}"
+        )
+
+    def _validate_layer(self, layer_idx: int) -> None:
+        """Raise ``IndexError`` if *layer_idx* is out of range."""
+        if not 0 <= layer_idx < self._num_layers:
+            raise IndexError(
+                f"layer_idx={layer_idx} is out of range for a model "
+                f"with {self._num_layers} layers (0–{self._num_layers - 1})."
+            )
