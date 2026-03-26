@@ -2,6 +2,10 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+dist/
+build/
+*.egg
 
 # Jupyter
 .ipynb_checkpoints/
@@ -11,9 +15,15 @@ __pycache__/
 venv/
 env/
 
-# VS Code
+# IDE
 .vscode/
+.idea/
 
 # System
-thumbs.db
+Thumbs.db
 Desktop.ini
+.DS_Store
+
+# Model cache (large files)
+*.bin
+*.safetensors

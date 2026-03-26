@@ -1,9 +1,10 @@
---index-url https://download.pytorch.org/whl/cu124
-torch
-torchvision
-torchaudio
-transformers
+# Core dependencies (see pyproject.toml for the canonical list)
+# Install PyTorch for your CUDA version first: https://pytorch.org/get-started/locally/
+torch>=2.0
+transformers>=4.30
 accelerate
-jupyter
 numpy
+
+# Development / notebooks
+jupyter
 matplotlib
