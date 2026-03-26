@@ -1,104 +1,183 @@
-# LLM Steering with Activation Engineering
+<p align="center">
+  <h1 align="center">Activation Steering for LLMs</h1>
+  <p align="center">
+    <em>Steer language model behavior by intervening on internal representations — no fine-tuning required.</em>
+  </p>
+  <p align="center">
+    <img src="https://img.shields.io/badge/python-3.9%2B-blue?logo=python&logoColor=white" alt="Python 3.9+">
+    <img src="https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c?logo=pytorch&logoColor=white" alt="PyTorch">
+    <img src="https://img.shields.io/badge/HuggingFace-Transformers-yellow?logo=huggingface&logoColor=white" alt="Transformers">
+    <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
+  </p>
+</p>
 
-This project demonstrates the technique of **Activation Engineering** (also known as *Representation Engineering*) on Large Language Models (LLMs) using PyTorch and Hugging Face Transformers. 
+---
 
-It is designed as an educational tool to understand how to intervene on the internal state of a model to influence its output without the need for fine-tuning or retraining.
+## What is Activation Steering?
 
-## 🚀 How it works
+**Activation Engineering** (also called *Representation Engineering*) is a technique that modifies the internal activations of a language model at inference time to influence its outputs — without retraining or fine-tuning.
 
-1. **Activations as Representation**: We assume that the internal activations of an LLM at specific layers represent complex concepts (e.g., sentiment, honesty, topics).
-2. **Vector Arithmetic**: By contrasting the activations of two opposing prompts (e.g., "Love" vs "Hate"), we extract a "direction" vector that represents that specific difference in the model's latent space.
-3. **Forward Hooking**: During the generation process, we use PyTorch hooks to inject this vector (addition or subtraction) into the model's residual stream, "steering" the generation towards the desired concept.
+This project provides a clean, modular Python toolkit to:
 
-## 🧠 The Neural Analogy: AI Steering as Neurostimulation
+1. **Extract** a steering vector by contrasting two opposing concepts (e.g. *"love"* vs *"hate"*)
+2. **Inject** that vector into the model's residual stream during generation
+3. **Control** the steering intensity with a single scalar multiplier
 
-A compelling way to understand Activation Engineering is through the lens of neuroscience. In biological brains, techniques like **Transcranial Magnetic Stimulation (TMS)** or **Deep Brain Stimulation (DBS)** are used to modulate neural activity.
+### How it works
 
-* **Non-Invasive Modulation**: Just as TMS influences specific brain regions with magnetic pulses without changing the brain's physical structure, Steering modulates the "residual stream" without changing the model's weights.
-* **Real-time Intervention**: We are not "teaching" the model new things (Learning); we are "stimulating" existing latent representations to change the model's behavioral state in real-time.
-* **Circuit Level Control**: We act as "digital neurosurgeons," identifying the specific layers (circuits) where a concept is most salient and applying a precise "vectorial impulse."
+```
+Positive prompts  ──►  Activation(pos)  ─┐
+                                          ├──  diff  ──►  Steering Vector  ──►  Inject at Layer N
+Negative prompts  ──►  Activation(neg)  ─┘                                      during generation
+```
 
-## 📚 References & Scientific Background
+1. **Activations as Representations** — Internal hidden states at specific layers encode semantic concepts (sentiment, genre, tone, ...).
+2. **Vector Arithmetic** — The difference `act(positive) − act(negative)` isolates the direction of that concept in latent space.
+3. **Forward Hooking** — A PyTorch forward hook adds `vector × multiplier` to the residual stream at a chosen layer, steering every subsequent token.
 
-This project integrates foundational research with state-of-the-art implementations in **Mechanistic Interpretability**:
+## The Neural Analogy
 
-### 🏛️ Foundational Theory
-* **Representation Engineering (RepE)**: *Zou et al. (2023)*. The primary framework for top-down AI transparency.
-* **Activation Addition (ActAdd)**: *Turner et al. (2023)*. The seminal work on steering via vector addition.
-* **Scaling Monosemanticity**: *Templeton et al. (Anthropic, 2024)*. Highlighting how Sparse Autoencoders (SAEs) isolate high-level concepts within the latent space.
+A useful way to think about this: in neuroscience, techniques like **Transcranial Magnetic Stimulation (TMS)** and **Deep Brain Stimulation (DBS)** modulate neural activity without changing the brain's structure.
 
-### 🔬 Technical Deep Dives
-* **The Geometry of Truth**: *Marks & Tegmark (2023)*. Proving that truthfulness exists as a linear direction in LLMs.
-* **Concept Activation Vectors (CAV)**: *LessWrong (2023)*. A deep dive into the mathematical intuition of steering behaviors.
+Activation steering does the same to a transformer:
 
-### 🛠️ Practical Implementations & Case Studies
-* **LLM-Steer-Instruct**: *Microsoft (2024)*. Techniques for steering instruction-tuned models.
-* **Eiffel Tower Llama**: *David Louapre*. A famous community experiment demonstrating forced concept injection.
-* **mHC (Manifold-Constrained Hyper-Connections)**: *DeepSeek-AI (2025)*. Latest research on stabilizing the residual stream architectures we target.
-## 🛠️ Installation
+| Neuroscience | Activation Steering |
+|---|---|
+| Magnetic/electric pulse | Steering vector |
+| Target brain region | Target transformer layer |
+| Stimulation intensity | Multiplier parameter |
+| No structural change | No weight updates |
 
-1. **Clone the repository**:
-   ```bash
-   git clone <your-repository-url>
-   cd Steering
+We act as *digital neurosurgeons* — identifying the layer where a concept is most salient and applying a precise vectorial impulse.
 
-2. **Prerequisites**:
+## Quick Start
 
-An NVIDIA GPU (e.g., RTX 4070 Super) with CUDA support is highly recommended.
+```python
+from steering_lib import SteerableModel
 
-Python 3.9+
+# Load model (auto-detects GPU)
+model = SteerableModel("gpt2")
 
-3. **Setup Environment**:
-   ```bash
-    python -m venv venv
-    .\venv\Scripts\activate  # On Windows
-    # source venv/bin/activate  # On Linux/Mac
+# Extract a steering vector at layer 7
+vector = model.extract_vector(
+    positive_text="I love this movie because",
+    negative_text="I hate this movie because",
+    layer_idx=7,
+)
 
-4. Install Dependencies: This project requires PyTorch optimized for CUDA 12.4.
-    ```bash
-    pip install torch torchvision torchaudio --index-url [https://download.pytorch.org/whl/cu124](https://download.pytorch.org/whl/cu124)
-    pip install transformers datasets ipykernel jupyter
+# Generate with steering
+print(model.generate("I think this film is",
+                      steering_vector=vector, layer_idx=7, multiplier=40.0))
+```
 
-----------------------------------------------------------------------------------------------------
+For robust vectors, pass **lists of prompts** — the activations are averaged to reduce noise:
 
-💻 Usage
-Explore the implementation using the provided Jupyter notebook:
-    ```bash
-    jupyter notebook demo.ipynb
+```python
+import prompts
 
-The notebook guides you through:
+vector = model.extract_vector(
+    positive_text=prompts.FANTASY_PROMPTS,
+    negative_text=prompts.SCIFI_PROMPTS,
+    layer_idx=8,
+)
+```
 
-1. Loading a pre-trained model (e.g., GPT-2).
+## Example Results
 
-2. Computing a steering vector for a specific concept.
+> **Prompt:** *"In the box, I found a"* — Layer 8, Force 40.0, Fantasy vs Sci-Fi
 
-3. Generating text and comparing the steered vs. unsteered output.
+| | Output |
+|---|---|
+| **Baseline** | *"...a set of a variety of accessories with a small space."* |
+| **+ Fantasy** | *"...a very nice long, deep wooden sword. It's carved from stone, and I can see the hilt coming out."* |
+| **- Fantasy (Sci-Fi)** | *"...a few basic features, including: USB-C for USB devices to connect to and communicate with devices."* |
 
-------------------------------------------------------------------------------------------------------
+> **Prompt:** *"Hey, I need"* — Layer 7, Force 40.0, Formal vs Street
 
-------------------------------------------------------------------------------------------------------
+| | Output |
+|---|---|
+| **+ Formal** | *"...some assistance with the information that you have reported on our site and the information that has been provided under this Policy."* |
+| **- Formal (Street)** | *"...a bed!" "I was talking on my cellphone before you came out!" "Just go, I'll be okay!"* |
 
-### 🧪 Experimental Insights & Best Practices
+## Installation
 
-Through empirical testing on **GPT-2 Small**, we have identified several key factors that influence the effectiveness of activation steering:
+**Prerequisites:** Python 3.9+ and an NVIDIA GPU with CUDA support (recommended).
 
-#### 1. The "Golden" Layers
-*   **Layers 7 and 8**: These layers consistently perform best for semantic concepts like sentiment or genre.
-*   **Rationale**: Early layers focus heavily on syntax and low-level token features, while the final layers are too biased towards immediate token prediction. Middle layers (7-8) represent the "conceptual core" where abstract meanings are solidified.
+```bash
+git clone https://github.com/EuBa-Code/Steering-Project-by-EuBa-Code.git
+cd Steering-Project-by-EuBa-Code
+python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+```
 
-#### 2. Vector Purity (Signal-to-Noise)
-*   **Symmetry is key**: Using short, symmetric pairs of prompts (e.g., `"I love it"` vs `"I hate it"`) produces much cleaner steering vectors. 
-*   **Grammar Noise**: Longer, varied sentences often introduce "grammatical noise" into the vector, which can lead to incoherent generations or failure to steer the model effectively.
+> **Note:** If you need a specific CUDA version of PyTorch, install it first following the [official instructions](https://pytorch.org/get-started/locally/), then run `pip install -e ".[dev]"`.
 
-#### 3. Power Scaling (Magnitude)
-Since the implementation normalizes the steering vector to a unit length (norm = 1.0), the `multiplier` (force) becomes a predictable control:
-*   **Force < 10.0**: Subtle effect, often overcome by the model's natural bias.
-*   **Force 30.0 - 50.0**: The "Sweet Spot". The model follows the steering direction while maintaining high linguistic coherence.
-*   **Force > 80.0**: Excessive perturbation. The model may begin generating repetitive or nonsensical text as activations are pushed too far out of their natural distribution.
+## Usage
 
---------------------------------------------------------------------------------------------------------
+The project includes two Jupyter notebooks:
 
-Created for educational purposes in the field of AI Safety and Interpretability.
+| Notebook | Description |
+|---|---|
+| `demo.ipynb` | Minimal end-to-end example (extract vector, steer generation) |
+| `playground.ipynb` | Advanced experiments: robust multi-prompt vectors, layer sweeps |
 
+```bash
+jupyter notebook demo.ipynb
+```
 
+## Experimental Insights
 
+Findings from empirical testing on **GPT-2 Small** (12 layers, 768-dim hidden state):
+
+### Optimal Layers
+
+**Layers 7–8** consistently perform best for semantic steering. Early layers (0–3) focus on syntax; final layers (10–11) are biased toward immediate next-token prediction. The middle layers encode the *conceptual core*.
+
+### Vector Quality
+
+Short, **symmetric prompt pairs** produce the cleanest vectors. Longer sentences introduce grammatical noise that dilutes the target concept. Using **lists of 5–10 prompts** and averaging activations further improves signal-to-noise ratio.
+
+### Multiplier Scaling
+
+Since vectors are normalized to unit length, the multiplier directly controls intensity:
+
+| Range | Effect |
+|---|---|
+| < 10 | Subtle — often overridden by the model's natural bias |
+| **30 – 50** | **Sweet spot** — strong steering with coherent output |
+| > 80 | Degradation — repetitive or nonsensical text |
+
+## Project Structure
+
+```
+steering_lib/
+    __init__.py          # Public API: SteerableModel, SteeringVector
+    model.py             # High-level model wrapper and generation
+    hooks.py             # PyTorch forward-hook management
+    vectors.py           # Steering vector representation and math
+prompts.py               # Curated prompt collections for experiments
+demo.ipynb               # Quick-start notebook
+playground.ipynb         # Advanced experiments and layer sweeps
+```
+
+## References
+
+This project builds on recent work in **Mechanistic Interpretability**:
+
+### Foundational Theory
+- **Representation Engineering (RepE)** — Zou et al. (2023) — [arXiv:2310.01405](https://arxiv.org/abs/2310.01405)
+- **Activation Addition (ActAdd)** — Turner et al. (2023) — [arXiv:2308.10248](https://arxiv.org/abs/2308.10248)
+- **Scaling Monosemanticity** — Templeton et al., Anthropic (2024) — SAEs isolating high-level concepts in latent space
+
+### Technical Deep Dives
+- **The Geometry of Truth** — Marks & Tegmark (2023) — [arXiv:2310.18166](https://arxiv.org/abs/2310.18166)
+- **Concept Activation Vectors (CAV)** — LessWrong (2023) — Mathematical intuition behind steering behaviors
+
+### Practical Implementations
+- **LLM-Steer-Instruct** — Microsoft (2024) — Steering instruction-tuned models
+- **Eiffel Tower Llama** — David Louapre — Community experiment on forced concept injection
+- **mHC (Manifold-Constrained Hyper-Connections)** — DeepSeek-AI (2025) — Stabilizing residual stream architectures
+
+## License
+
+[MIT](LICENSE) — Created for educational purposes in the field of AI Safety and Interpretability.
